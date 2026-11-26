@@ -23,10 +23,24 @@ until sudo -u slurm sacctmgr -i show cluster >/dev/null 2>&1; do
 done
 sudo -u slurm sacctmgr -i add cluster cluster >/dev/null 2>&1 || true
 
-sudo slurmctld
+# -i: if the container was killed before slurmctld could save its state (e.g.
+# docker kill), start anyway instead of dying on missing state files.
+sudo slurmctld -i
 if [ ! -f /etc/ssh/ssh_host_rsa_key ]; then
 	sudo ssh-keygen -A
 fi
 sudo service ssh start
 
-tail -f /dev/null
+# Stop slurmctld cleanly on docker stop so it writes its state files and
+# restarts cleanly on the next docker start.
+shutdown() {
+	sudo scontrol shutdown slurmctld
+	while pgrep -x slurmctld >/dev/null; do
+		sleep 0.5
+	done
+	exit 0
+}
+trap shutdown TERM INT
+
+tail -f /dev/null &
+wait $!

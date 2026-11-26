@@ -46,6 +46,8 @@ services:
     shm_size: '4g'
     hostname: slurmfrontend
     user: admin
+    ports:
+      - "127.0.0.1:${{SSH_PORT}}:22"
     volumes:
       - shared-vol:/home/admin
     healthcheck:

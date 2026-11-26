@@ -52,17 +52,39 @@ To check status of the cluster containers:
 docker-compose -f docker-compose.yml ps
 ```
 
+# Logging In with SSH
+
+The frontend (login) node's SSH server is published on the host at `127.0.0.1:${SSH_PORT}`
+(default `2222`). It is bound to localhost only, because the images ship with a well-known
+`admin`/`admin` password.
+
+Log in with the password `admin`:
+```
+ssh -p 2222 admin@localhost
+```
+Or use the key the frontend generates in the shared home volume:
+```
+docker exec slurm-frontend cat /home/admin/.ssh/id_rsa > ~/.ssh/slurm_frontend_key
+chmod 600 ~/.ssh/slurm_frontend_key
+ssh -i ~/.ssh/slurm_frontend_key -p 2222 admin@localhost
+```
+From the frontend you can `ssh` to `slurmmaster` and `slurmnodeN` without a password.
+
+Host keys are regenerated whenever the frontend container is recreated, so `ssh` may warn
+that the host key changed. Clear the old entry with `ssh-keygen -R "[localhost]:2222"`.
+
 # Running Multiple Clusters Simultaneously
 
 By default the cluster containers are named `slurm-frontend`, `slurm-master`, `slurm-node1`, etc.,
-and no host ports are published, so a second cluster can be started alongside the first as long
-as it uses a different Compose project name and `CLUSTER_NAME`:
+and the only host port published is the frontend's SSH port (`SSH_PORT`, default `2222`). A second
+cluster can be started alongside the first as long as it uses a different Compose project name,
+`CLUSTER_NAME`, and `SSH_PORT`:
 ```
-CLUSTER_NAME=cluster2 docker-compose -p cluster2 -f docker-compose.yml up -d
+CLUSTER_NAME=cluster2 SSH_PORT=2223 docker-compose -p cluster2 -f docker-compose.yml up -d
 ```
-The `-p` flag keeps the network and volume isolated from other instances, and `CLUSTER_NAME`
-keeps the container names unique (`cluster2-frontend`, `cluster2-master`, ...), so you can still
-run:
+The `-p` flag keeps the network and volume isolated from other instances, `CLUSTER_NAME`
+keeps the container names unique (`cluster2-frontend`, `cluster2-master`, ...), and `SSH_PORT`
+avoids a host port conflict, so you can still run:
 ```
 docker exec -it cluster2-frontend bash
 ```
@@ -89,6 +111,7 @@ Defaults are set in the `.env` file and can be overridden via environment variab
 | `IMAGE_TAG` | `latest` | Tag applied to built images |
 | `SLURM_CPUS_ON_NODE` | `8` | CPUs per Slurm node |
 | `CLUSTER_NAME` | `slurm` | Prefix for container names; set uniquely per instance to run multiple clusters at once |
+| `SSH_PORT` | `2222` | Host port (on `127.0.0.1`) forwarded to SSH on the frontend; set uniquely per instance to run multiple clusters at once |
 
 ## Building with Different Ubuntu Versions
 

@@ -52,6 +52,12 @@ jobs:
           docker exec slurm-frontend timeout 1s ssh slurmnode2 hostname
           docker exec slurm-frontend timeout 1s ssh slurmnode3 hostname
       -
+        name: Test ssh login to the frontend from the host
+        run: |
+          docker exec slurm-frontend cat /home/admin/.ssh/id_rsa > /tmp/frontend_key
+          chmod 600 /tmp/frontend_key
+          ssh -i /tmp/frontend_key -p 2222 -o StrictHostKeyChecking=no -o BatchMode=yes admin@127.0.0.1 sinfo
+      -
         name: Shut down Slurm cluster containers
         run: docker compose -f docker-compose.yml down
 
@@ -91,6 +97,12 @@ jobs:
           docker exec slurm-frontend timeout 1s ssh slurmnode2 hostname
           docker exec slurm-frontend timeout 1s ssh slurmnode3 hostname
       -
+        name: Test ssh login to the frontend from the host
+        run: |
+          docker exec slurm-frontend cat /home/admin/.ssh/id_rsa > /tmp/frontend_key
+          chmod 600 /tmp/frontend_key
+          ssh -i /tmp/frontend_key -p 2222 -o StrictHostKeyChecking=no -o BatchMode=yes admin@127.0.0.1 sinfo
+      -
         name: Shut down Slurm cluster containers
         run: docker compose -f docker-compose.yml down
 
@@ -121,8 +133,8 @@ jobs:
       -
         name: Start two simultaneous clusters with distinct CLUSTER_NAME
         run: |
-          CLUSTER_NAME=clustera docker compose -p clustera up -d --wait
-          CLUSTER_NAME=clusterb docker compose -p clusterb up -d --wait
+          CLUSTER_NAME=clustera SSH_PORT=2222 docker compose -p clustera up -d --wait
+          CLUSTER_NAME=clusterb SSH_PORT=2223 docker compose -p clusterb up -d --wait
       -
         name: Check container names reflect CLUSTER_NAME
         run: |

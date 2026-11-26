@@ -119,6 +119,7 @@ RUN useradd -m slurm -s /usr/bin/bash -d /home/slurm \
 
 RUN mkdir -p /var/run/sshd \
  && sed 's@session\s*required\s*pam_loginuid.so@session optional pam_loginuid.so@g' -i /etc/pam.d/sshd \
+ && sed -i 's/^AcceptEnv/#AcceptEnv/' /etc/ssh/sshd_config \
  && chmod -x /etc/update-motd.d/* \
  && rm -f /etc/legal
 
