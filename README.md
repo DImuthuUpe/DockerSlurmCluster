@@ -33,6 +33,11 @@ hand-edited, since each compute node needs its own `container_name`,
 
 # Quick Start
 
+Build docker images to get latest dependency installations
+```
+UBUNTU_BASE=ubuntu:24.04 IMAGE_TAG=slurmbase-1.0 docker compose build
+```
+
 To start the slurm cluster environment:
 ```
 docker-compose -f docker-compose.yml up -d
@@ -91,6 +96,23 @@ permissions automatically. On a Linux host, the directory must be writable by ui
 e.g. `sudo chown 1001 data` or `chmod 777 data`.
 
 Clusters started with the same `DATA_DIR` share the same `/data`.
+
+# Python Environments
+
+Every container has `python3` with `venv`, conda ([Miniforge](https://github.com/conda-forge/miniforge),
+using the conda-forge channel, plus `mamba`), and [pixi](https://pixi.sh). Create environments in
+the shared home directory (or `/data`) so they're available on every compute node:
+```
+python3 -m venv ~/venv && ~/venv/bin/pip install numpy
+conda create -y -n myenv python=3.12 numpy   # goes to ~/.conda/envs/myenv
+pixi init myproj && cd myproj && pixi add python numpy
+```
+Then run them in jobs, e.g. `srun -N2 conda run -n myenv python script.py` or
+`srun -N2 pixi run python script.py` from the project directory. `conda activate` works in
+login shells (such as `ssh`) and in batch scripts that start with `#!/bin/bash -l`.
+
+Conda's own Python is not on `PATH`, so `python3` is always the system Python. The Miniforge
+and pixi versions are set by the `MINIFORGE_VERSION` and `PIXI_VERSION` build args.
 
 # Running Multiple Clusters Simultaneously
 
