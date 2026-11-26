@@ -73,6 +73,25 @@ From the frontend you can `ssh` to `slurmmaster` and `slurmnodeN` without a pass
 Host keys are regenerated whenever the frontend container is recreated, so `ssh` may warn
 that the host key changed. Clear the old entry with `ssh-keygen -R "[localhost]:2222"`.
 
+# Sharing Data with the Host
+
+The host directory `DATA_DIR` (default `./data`, next to `docker-compose.yml`) is mounted at
+`/data` in every container: frontend, master, and all compute nodes. Use it to put input
+files in front of jobs and collect their output on the host:
+```
+cp input.dat data/
+ssh -p 2222 admin@localhost 'srun -N2 wc -c /data/input.dat'
+```
+To use a different host directory:
+```
+DATA_DIR=/path/to/data docker compose up -d
+```
+Inside the containers jobs run as `admin` (uid 1001). Docker Desktop on macOS handles
+permissions automatically. On a Linux host, the directory must be writable by uid 1001,
+e.g. `sudo chown 1001 data` or `chmod 777 data`.
+
+Clusters started with the same `DATA_DIR` share the same `/data`.
+
 # Running Multiple Clusters Simultaneously
 
 By default the cluster containers are named `slurm-frontend`, `slurm-master`, `slurm-node1`, etc.,
@@ -112,6 +131,7 @@ Defaults are set in the `.env` file and can be overridden via environment variab
 | `SLURM_CPUS_ON_NODE` | `8` | CPUs per Slurm node |
 | `CLUSTER_NAME` | `slurm` | Prefix for container names; set uniquely per instance to run multiple clusters at once |
 | `SSH_PORT` | `2222` | Host port (on `127.0.0.1`) forwarded to SSH on the frontend; set uniquely per instance to run multiple clusters at once |
+| `DATA_DIR` | `./data` | Host directory mounted at `/data` in every container |
 
 ## Building with Different Ubuntu Versions
 

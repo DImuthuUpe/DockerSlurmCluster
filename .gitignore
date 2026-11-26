@@ -3,3 +3,7 @@
 *#
 
 __pycache__/
+
+# Contents of the default host data directory mounted at /data
+data/*
+!data/.gitkeep

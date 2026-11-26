@@ -52,6 +52,12 @@ jobs:
           docker exec slurm-frontend timeout 1s ssh slurmnode2 hostname
           docker exec slurm-frontend timeout 1s ssh slurmnode3 hostname
       -
+        name: Test host data directory is shared with all containers
+        run: |
+          echo "from-host" > data/host.txt
+          docker exec slurm-frontend srun -N3 --ntasks-per-node=1 bash -c 'grep -qx from-host /data/host.txt && hostname > /data/$(hostname).txt'
+          for n in 1 2 3; do grep -qx "slurmnode$n" "data/slurmnode$n.txt"; done
+      -
         name: Test ssh login to the frontend from the host
         run: |
           docker exec slurm-frontend cat /home/admin/.ssh/id_rsa > /tmp/frontend_key
@@ -96,6 +102,12 @@ jobs:
           docker exec slurm-frontend timeout 1s ssh slurmnode1 hostname
           docker exec slurm-frontend timeout 1s ssh slurmnode2 hostname
           docker exec slurm-frontend timeout 1s ssh slurmnode3 hostname
+      -
+        name: Test host data directory is shared with all containers
+        run: |
+          echo "from-host" > data/host.txt
+          docker exec slurm-frontend srun -N3 --ntasks-per-node=1 bash -c 'grep -qx from-host /data/host.txt && hostname > /data/$(hostname).txt'
+          for n in 1 2 3; do grep -qx "slurmnode$n" "data/slurmnode$n.txt"; done
       -
         name: Test ssh login to the frontend from the host
         run: |

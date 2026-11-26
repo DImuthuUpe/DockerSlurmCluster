@@ -23,6 +23,7 @@ x-node-common: &node-common
   user: admin
   volumes:
     - shared-vol:/home/admin
+    - ${{DATA_DIR}}:/data
   depends_on:
     slurmmaster:
       condition: service_started
@@ -50,6 +51,7 @@ services:
       - "127.0.0.1:${{SSH_PORT}}:22"
     volumes:
       - shared-vol:/home/admin
+      - ${{DATA_DIR}}:/data
     healthcheck:
       test: ["CMD", "test", "-f", "/tmp/ssh-ready"]
       interval: 2s
@@ -68,6 +70,7 @@ services:
     user: admin
     volumes:
       - shared-vol:/home/admin
+      - ${{DATA_DIR}}:/data
     environment:
       SLURM_CPUS_ON_NODE: ${{SLURM_CPUS_ON_NODE}}
     depends_on:
