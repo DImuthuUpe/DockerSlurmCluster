@@ -33,6 +33,11 @@ hand-edited, since each compute node needs its own `container_name`,
 
 # Quick Start
 
+Build docker images to get latest dependency installations
+```
+UBUNTU_BASE=ubuntu:24.04 IMAGE_TAG=slurmbase-1.0 docker compose build
+```
+
 To start the slurm cluster environment:
 ```
 docker-compose -f docker-compose.yml up -d
@@ -52,17 +57,75 @@ To check status of the cluster containers:
 docker-compose -f docker-compose.yml ps
 ```
 
+# Logging In with SSH
+
+The frontend (login) node's SSH server is published on the host at `127.0.0.1:${SSH_PORT}`
+(default `2222`). It is bound to localhost only, because the images ship with a well-known
+`admin`/`admin` password.
+
+Log in with the password `admin`:
+```
+ssh -p 2222 admin@localhost
+```
+Or use the key the frontend generates in the shared home volume:
+```
+docker exec slurm-frontend cat /home/admin/.ssh/id_rsa > ~/.ssh/slurm_frontend_key
+chmod 600 ~/.ssh/slurm_frontend_key
+ssh -i ~/.ssh/slurm_frontend_key -p 2222 admin@localhost
+```
+From the frontend you can `ssh` to `slurmmaster` and `slurmnodeN` without a password.
+
+Host keys are regenerated whenever the frontend container is recreated, so `ssh` may warn
+that the host key changed. Clear the old entry with `ssh-keygen -R "[localhost]:2222"`.
+
+# Sharing Data with the Host
+
+The host directory `DATA_DIR` (default `./data`, next to `docker-compose.yml`) is mounted at
+`/data` in every container: frontend, master, and all compute nodes. Use it to put input
+files in front of jobs and collect their output on the host:
+```
+cp input.dat data/
+ssh -p 2222 admin@localhost 'srun -N2 wc -c /data/input.dat'
+```
+To use a different host directory:
+```
+DATA_DIR=/path/to/data docker compose up -d
+```
+Inside the containers jobs run as `admin` (uid 1001). Docker Desktop on macOS handles
+permissions automatically. On a Linux host, the directory must be writable by uid 1001,
+e.g. `sudo chown 1001 data` or `chmod 777 data`.
+
+Clusters started with the same `DATA_DIR` share the same `/data`.
+
+# Python Environments
+
+Every container has `python3` with `venv`, conda ([Miniforge](https://github.com/conda-forge/miniforge),
+using the conda-forge channel, plus `mamba`), and [pixi](https://pixi.sh). Create environments in
+the shared home directory (or `/data`) so they're available on every compute node:
+```
+python3 -m venv ~/venv && ~/venv/bin/pip install numpy
+conda create -y -n myenv python=3.12 numpy   # goes to ~/.conda/envs/myenv
+pixi init myproj && cd myproj && pixi add python numpy
+```
+Then run them in jobs, e.g. `srun -N2 conda run -n myenv python script.py` or
+`srun -N2 pixi run python script.py` from the project directory. `conda activate` works in
+login shells (such as `ssh`) and in batch scripts that start with `#!/bin/bash -l`.
+
+Conda's own Python is not on `PATH`, so `python3` is always the system Python. The Miniforge
+and pixi versions are set by the `MINIFORGE_VERSION` and `PIXI_VERSION` build args.
+
 # Running Multiple Clusters Simultaneously
 
 By default the cluster containers are named `slurm-frontend`, `slurm-master`, `slurm-node1`, etc.,
-and no host ports are published, so a second cluster can be started alongside the first as long
-as it uses a different Compose project name and `CLUSTER_NAME`:
+and the only host port published is the frontend's SSH port (`SSH_PORT`, default `2222`). A second
+cluster can be started alongside the first as long as it uses a different Compose project name,
+`CLUSTER_NAME`, and `SSH_PORT`:
 ```
-CLUSTER_NAME=cluster2 docker-compose -p cluster2 -f docker-compose.yml up -d
+CLUSTER_NAME=cluster2 SSH_PORT=2223 docker-compose -p cluster2 -f docker-compose.yml up -d
 ```
-The `-p` flag keeps the network and volume isolated from other instances, and `CLUSTER_NAME`
-keeps the container names unique (`cluster2-frontend`, `cluster2-master`, ...), so you can still
-run:
+The `-p` flag keeps the network and volume isolated from other instances, `CLUSTER_NAME`
+keeps the container names unique (`cluster2-frontend`, `cluster2-master`, ...), and `SSH_PORT`
+avoids a host port conflict, so you can still run:
 ```
 docker exec -it cluster2-frontend bash
 ```
@@ -89,6 +152,8 @@ Defaults are set in the `.env` file and can be overridden via environment variab
 | `IMAGE_TAG` | `latest` | Tag applied to built images |
 | `SLURM_CPUS_ON_NODE` | `8` | CPUs per Slurm node |
 | `CLUSTER_NAME` | `slurm` | Prefix for container names; set uniquely per instance to run multiple clusters at once |
+| `SSH_PORT` | `2222` | Host port (on `127.0.0.1`) forwarded to SSH on the frontend; set uniquely per instance to run multiple clusters at once |
+| `DATA_DIR` | `./data` | Host directory mounted at `/data` in every container |
 
 ## Building with Different Ubuntu Versions
 

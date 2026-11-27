@@ -65,6 +65,20 @@ class GenerateComposeTests(unittest.TestCase):
         self.assertIn("slurmmaster:", content)
         self.assertIn("container_name: ${CLUSTER_NAME}-master", content)
 
+    def test_frontend_publishes_ssh_on_localhost(self):
+        result, content = run_generator()
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn('- "127.0.0.1:${SSH_PORT}:22"', content)
+        self.assertEqual(content.count("ports:"), 1, "only the frontend should publish a host port")
+
+    def test_data_dir_mounted_in_all_containers(self):
+        result, content = run_generator("--nodes", "4")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        # once in the node anchor shared by every slurmnode, plus frontend and master
+        self.assertEqual(content.count("- ${DATA_DIR}:/data"), 3)
+        node_common = content.split("services:")[0]
+        self.assertIn("- ${DATA_DIR}:/data", node_common)
+
     def test_output_is_valid_compose_config(self):
         docker = subprocess.run(["docker", "compose", "version"], capture_output=True)
         if docker.returncode != 0:

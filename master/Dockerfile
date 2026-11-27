@@ -19,6 +19,7 @@ RUN apt-get update -y && apt-get upgrade -y && apt-get install -y \
     libssl-dev \
     openssh-server \
     pkg-config \
+    python3-venv \
     sudo \
  && groupadd --system munge \
  && useradd --system --gid munge --home /var/lib/munge --shell /usr/sbin/nologin munge \
@@ -110,6 +111,30 @@ RUN ARCH_TRIPLET="$(uname -m)-linux-gnu" \
  && ln -sf ${ARCH_TRIPLET}/libmunge.so /usr/lib/libmunge.so \
  && ln -sf ${ARCH_TRIPLET}/libmunge.so.2 /usr/lib/libmunge.so.2 \
  && ln -sf ${ARCH_TRIPLET}/pkgconfig/munge.pc /usr/lib/pkgconfig/munge.pc
+
+# Conda (Miniforge, which defaults to the conda-forge channel) and pixi. Installed
+# system-wide because /home/admin is a shared volume that hides anything the image puts
+# there. Users' conda envs (~/.conda/envs) and pixi caches land in that shared home, so
+# they are visible on every node. /opt/conda/bin is deliberately not on PATH so conda's
+# python doesn't shadow the system python3; only the conda/mamba commands are linked.
+ARG MINIFORGE_VERSION=26.9.4-2
+ARG PIXI_VERSION=0.85.0
+RUN ARCH="$(uname -m)" \
+ && cd /tmp \
+ && MF="Miniforge3-${MINIFORGE_VERSION}-Linux-${ARCH}.sh" \
+ && wget -q "https://github.com/conda-forge/miniforge/releases/download/${MINIFORGE_VERSION}/${MF}" \
+            "https://github.com/conda-forge/miniforge/releases/download/${MINIFORGE_VERSION}/${MF}.sha256" \
+ && sha256sum -c "${MF}.sha256" \
+ && bash "${MF}" -b -p /opt/conda \
+ && /opt/conda/bin/conda clean -afy \
+ && ln -s /opt/conda/bin/conda /opt/conda/bin/mamba /usr/local/bin/ \
+ && ln -s /opt/conda/etc/profile.d/conda.sh /etc/profile.d/conda.sh \
+ && PX="pixi-${ARCH}-unknown-linux-musl.tar.gz" \
+ && wget -q "https://github.com/prefix-dev/pixi/releases/download/v${PIXI_VERSION}/${PX}" \
+            "https://github.com/prefix-dev/pixi/releases/download/v${PIXI_VERSION}/${PX}.sha256" \
+ && sha256sum -c "${PX}.sha256" \
+ && tar -xzf "${PX}" -C /usr/local/bin pixi \
+ && rm -f /tmp/"${MF}"* /tmp/"${PX}"*
 
 RUN useradd -m admin -s /usr/bin/bash -d /home/admin \
  && echo "admin:admin" | chpasswd \
